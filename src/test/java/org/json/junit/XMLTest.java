@@ -498,6 +498,7 @@ public class XMLTest {
         Util.compareActualVsExpectedJsonObjects(jsonObject,expectedJsonObject);
         Util.compareActualVsExpectedJsonObjects(finalJsonObject,expectedJsonObject);
     }
+    
 
     /**
      * Converting a JSON doc containing '>' content to JSONObject, then
