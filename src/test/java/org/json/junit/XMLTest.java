@@ -364,6 +364,70 @@ public class XMLTest {
     }
 
     /**
+     * Replace sub-object from valid XML
+     */
+    @Test
+    public void shouldReplaceFromSubPath() {
+        String xmlStr =
+                "<library>\n" +
+                        "    <book>\n" +
+                        "        <title>The Hobbit</title>\n" +
+                        "        <author>J.R.R. Tolkien</author>\n" +
+                        "        <year>1937</year>\n" +
+                        "    </book>\n" +
+                        "    <book>\n" +
+                        "        <title>1984</title>\n" +
+                        "        <author>George Orwell</author>\n" +
+                        "        <year>1949</year>\n" +
+                        "    </book>\n" +
+                        "    <magazine>\n" +
+                        "        <title>National Geographic</title>\n" +
+                        "        <issue>March 2021</issue>\n" +
+                        "    </magazine>\n" +
+                        "</library>\n";
+
+        JSONPointer jsonPointerPath = new JSONPointer("/library/magazine");
+
+        // Replacement JSON
+        String replacementJsonStr =
+            "{\n" +
+            "  \"name\": \"Time Magazine\",\n" +
+            "  \"issue\": \"April 2025\"\n" +
+            "}";
+
+        String expectedJsonStr =
+            "{\n" +
+            "  \"library\": {\n" +
+            "    \"book\": [\n" +
+            "      {\n" +
+            "        \"author\": \"J.R.R. Tolkien\",\n" +
+            "        \"year\": 1937,\n" +
+            "        \"title\": \"The Hobbit\"\n" +
+            "      },\n" +
+            "      {\n" +
+            "        \"author\": \"George Orwell\",\n" +
+            "        \"year\": 1949,\n" +
+            "        \"title\": 1984\n" +
+            "      }\n" +
+            "    ],\n" +
+            "    \"magazine\": {\n" +
+            "      \"name\": \"Time Magazine\",\n" +
+            "      \"issue\": \"April 2025\"\n" +
+            "    }\n" +
+            "  }\n" +
+            "}\n";
+
+
+        JSONObject expectedJsonObject = new JSONObject(expectedJsonStr);
+        JSONObject replacementJsonObject = new JSONObject(replacementJsonStr);
+        Reader reader = new StringReader(xmlStr);
+        JSONObject outputJsonObject = XML.toJSONObject(reader, jsonPointerPath, replacementJsonObject);
+        System.out.println(outputJsonObject);
+        System.out.println(expectedJsonObject);
+        Util.compareActualVsExpectedJsonObjects(outputJsonObject, expectedJsonObject);
+    }
+
+    /**
      * Valid XML to XML.toString()
      */
     @Test

@@ -125,3 +125,10 @@ task testWithStrictMode {
         }
     }
 }
+
+test {
+    testLogging {
+        events "passed", "skipped", "failed", "standardOut", "standardError"
+        showStandardStreams = true
+    }
+}

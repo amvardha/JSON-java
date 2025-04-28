@@ -864,6 +864,26 @@ public class XML {
     }
 
     /**
+     * Replace a sub-object within the XML object, the path provided by the parameter
+     * JSONPointer path.
+     * @param reader XML reader
+     * @param path path to sub-object
+     * @param replacement JSON object to replace with
+     * @return JSONObject
+     * @throws JSONException Thrown if the path cannot be found
+     */
+    public static JSONObject toJSONObject(Reader reader, JSONPointer path, JSONObject replacement) {
+        JSONObject json = toJSONObject(reader);
+        String[] tokens = path.toString().split("/");
+        JSONObject parent = json;
+        for (int i = 1; i < tokens.length - 1; i++) {
+            parent = parent.getJSONObject(tokens[i]);
+        }
+        parent.put(tokens[tokens.length - 1], replacement);
+        return json;
+    }
+
+    /**
      * Convert a JSONObject into a well-formed, element-normal XML string.
      *
      * @param object
