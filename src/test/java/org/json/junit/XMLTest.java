@@ -364,6 +364,46 @@ public class XMLTest {
     }
 
     /**
+     * Retrieve sub-object from valid XML
+     */
+    @Test
+    public void shouldRetrieveFromSubPath() {
+        String xmlStr =
+                "<library>\n" +
+                        "    <book>\n" +
+                        "        <title>The Hobbit</title>\n" +
+                        "        <author>J.R.R. Tolkien</author>\n" +
+                        "        <year>1937</year>\n" +
+                        "    </book>\n" +
+                        "    <book>\n" +
+                        "        <title>1984</title>\n" +
+                        "        <author>George Orwell</author>\n" +
+                        "        <year>1949</year>\n" +
+                        "    </book>\n" +
+                        "    <magazine>\n" +
+                        "        <title>National Geographic</title>\n" +
+                        "        <issue>March 2021</issue>\n" +
+                        "    </magazine>\n" +
+                        "</library>\n";
+
+        String expectedJsonStr =
+                "{\n" +
+                        "  \"title\": \"National Geographic\",\n" +
+                        "  \"issue\": \"March 2021\"\n" +
+                        "}\n";
+
+        JSONPointer jsonPointerPath = new JSONPointer("/library/magazine");
+
+        JSONObject expectedJsonObject = new JSONObject(expectedJsonStr);
+        Reader reader = new StringReader(xmlStr);
+        System.out.println(".()");
+        JSONObject outputJsonObject = XML.toJSONObject(reader, jsonPointerPath);
+        System.out.println(outputJsonObject);
+        System.out.println(expectedJsonObject);
+        Util.compareActualVsExpectedJsonObjects(outputJsonObject, expectedJsonObject);
+    }
+
+    /**
      * Replace sub-object from valid XML
      */
     @Test

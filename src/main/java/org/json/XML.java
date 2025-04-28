@@ -864,6 +864,20 @@ public class XML {
     }
 
     /**
+     * Retrieve a sub-object within the XML object, the path provided by the parameter
+     * JSONPointer path.
+     * @param reader XML reader
+     * @param path path to sub-object
+     * @return JSONObject
+     * @throws JSONException Thrown if the path cannot be found
+     */
+    public static JSONObject toJSONObject(Reader reader, JSONPointer path) {
+        JSONObject json = toJSONObject(reader);
+        Object sub = json.query(path);
+        return new JSONObject(sub.toString());
+    }
+
+    /**
      * Replace a sub-object within the XML object, the path provided by the parameter
      * JSONPointer path.
      * @param reader XML reader
