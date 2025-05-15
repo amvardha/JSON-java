@@ -898,54 +898,6 @@ public class XML {
         return json;
     }
 
-    // /**
-    //  * Convert the XML object to JSON object apply a transformer
-    //  * Function<String, String> to any/all attributes in the XML Object
-    //  *
-    //  * @param reader XML reader
-    //  * @param keyTransformer Functional transformer to apply to all attributes
-    //  * @return JSONObject
-    //  * @throws JSONException Thrown if the path cannot be found
-    //  */
-    // public static JSONObject toJSONObject(Reader reader, Function<String, String> keyTransformer) {
-    //     return toJSONObject(reader, XMLParserConfiguration.ORIGINAL, keyTransformer);
-    // }
-
-    // /**
-    //  * Convert a well-formed (but not necessarily valid) XML into a JSONObject.
-    //  * Some information may be lost in this transformation because JSON is a
-    //  * data format and XML is a document format. XML uses elements, attributes,
-    //  * and content text, while JSON uses unordered collections of name/value
-    //  * pairs and arrays of values. JSON does not does not like to distinguish
-    //  * between elements and attributes. Sequences of similar elements are
-    //  * represented as JSONArrays. Content text may be placed in a "content"
-    //  * member. Comments, prologs, DTDs, and
-    //  * <pre>{@code
-    //  * &lt;[ [ ]]>}</pre> are ignored.
-    //  *
-    //  * All values are converted as strings, for 1, 01, 29.0 will not be coerced
-    //  * to numbers but will instead be the exact value as seen in the XML
-    //  * document.
-    //  *
-    //  * @param reader The XML source reader.
-    //  * @param config Configuration options for the parser
-    //  * @param
-    //  * @return A JSONObject containing the structured data from the XML string.
-    //  * @throws JSONException Thrown if there is an errors while parsing the
-    //  * string
-    //  */
-    // public static JSONObject toJSONObject(Reader reader, XMLParserConfiguration config, Function<String, String> keyTransformer) throws JSONException {
-    //     JSONObject jo = new JSONObject();
-    //     XMLTokener x = new XMLTokener(reader, config);
-    //     while (x.more()) {
-    //         x.skipPast("<");
-    //         if (x.more()) {
-    //             parse(x, jo, null, config, 0, keyTransformer);
-    //         }
-    //     }
-    //     return jo;
-    // }
-
     /**
      * Convert a JSONObject into a well-formed, element-normal XML string.
      *
