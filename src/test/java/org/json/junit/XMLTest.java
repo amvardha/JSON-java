@@ -1531,6 +1531,54 @@ public class XMLTest {
         assertEquals(jsonObject3.getJSONObject("color").getString("value"), "008E97");
     }
 
+    @Test
+    public void testKeyTransformerPrefixTransformation() {
+        String xml = "<root><foo>value</foo><bar>content</bar></root>";
+        XML.KeyTransformer prefixTransformer = key -> "swe262_" + key;
+        JSONObject json = XML.toJSONObject(new StringReader(xml), prefixTransformer);
+        assertTrue(json.has("swe262_root"));
+        JSONObject root = json.getJSONObject("swe262_root");
+        assertTrue(root.has("swe262_foo"));
+        assertTrue(root.has("swe262_bar"));
+        assertEquals("value", root.getJSONObject("swe262_foo").getString("content"));
+        assertEquals("content", root.getJSONObject("swe262_bar").getString("content"));
+    }
+
+    @Test
+    public void testKeyTransformerReverseTransformation() {
+        String xml = "<test><data>123</data></test>";
+        XML.KeyTransformer reverseTransformer = key -> new StringBuilder(key).reverse().toString();
+        JSONObject json = XML.toJSONObject(new StringReader(xml), reverseTransformer);
+        assertTrue(json.has("tset"));
+        JSONObject tset = json.getJSONObject("tset");
+        assertTrue(tset.has("atad"));
+        assertEquals("123", tset.getJSONObject("atad").getString("content"));
+    }
+
+    @Test
+    public void testKeyTransformerUpperCaseTransformation() {
+        String xml =
+            "<library>" +
+            "  <book>" +
+            "    <title>Sample Book</title>" +
+            "    <author>John Doe</author>" +
+            "    <year>2023</year>" +
+            "    <reviews>" +
+            "      <review>Great book!</review>" +
+            "      <review>Good read</review>" +
+            "    </reviews>" +
+            "  </book>" +
+            "</library>";
+        XML.KeyTransformer upperCaseTransformer = String::toUpperCase;
+        JSONObject json = XML.toJSONObject(new StringReader(xml), upperCaseTransformer);
+        assertTrue(json.has("LIBRARY"));
+        JSONObject library = json.getJSONObject("LIBRARY");
+        assertTrue(library.has("BOOK"));
+        JSONObject book = library.getJSONObject("BOOK");
+        assertTrue(book.has("TITLE"));
+        assertEquals("Sample Book", book.getJSONObject("TITLE").getString("content"));
+    }
+
 }
 
 
