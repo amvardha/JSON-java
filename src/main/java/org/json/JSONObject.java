@@ -17,6 +17,7 @@ import java.math.BigInteger;
 import java.util.*;
 import java.util.Map.Entry;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 /**
  * A JSONObject is an unordered collection of name/value pairs. Its external
@@ -3029,5 +3030,73 @@ public class JSONObject {
         }
         if (negativeFirstChar) {return "-0";}
         return "0";
+    }
+
+    /**
+     * Returns a stream of all nodes in this JSONObject, including nested objects and arrays.
+     * Each node contains both its value and its path from the root.
+     * 
+     * @return A stream of JSONNodes representing all nodes in this object
+     */
+    public Stream<JSONNode> toStream() {
+        return toStream(new ArrayList<>());
+    }
+
+    /**
+     * Returns a stream of all nodes in this JSONObject, including nested objects and arrays.
+     * Each node contains both its value and its path from the root.
+     * 
+     * @param currentPath The current path to this node
+     * @return A stream of JSONNodes representing all nodes in this object
+     */
+    protected Stream<JSONNode> toStream(List<String> currentPath) {
+        Stream<JSONNode> thisNode = Stream.of(new JSONNode(this, currentPath));
+        
+        Stream<JSONNode> childNodes = this.map.entrySet().stream()
+            .flatMap(entry -> {
+                List<String> newPath = new ArrayList<>(currentPath);
+                newPath.add(entry.getKey());
+                Object value = entry.getValue();
+                
+                if (value instanceof JSONObject) {
+                    return ((JSONObject) value).toStream(newPath);
+                } else if (value instanceof JSONArray) {
+                    return ((JSONArray) value).toStream(newPath);
+                } else {
+                    return Stream.of(new JSONNode(value, newPath));
+                }
+            });
+            
+        return Stream.concat(thisNode, childNodes);
+    }
+
+    /**
+     * Returns a stream of all leaf nodes in this JSONObject (nodes that are not objects or arrays).
+     * Each node contains both its value and its path from the root.
+     * 
+     * @return A stream of JSONNodes representing all leaf nodes in this object
+     */
+    public Stream<JSONNode> toLeafStream() {
+        return toStream().filter(node -> !node.isObject() && !node.isArray());
+    }
+
+    /**
+     * Returns a stream of all object nodes in this JSONObject.
+     * Each node contains both its value and its path from the root.
+     * 
+     * @return A stream of JSONNodes representing all object nodes in this object
+     */
+    public Stream<JSONNode> toObjectStream() {
+        return toStream().filter(JSONNode::isObject);
+    }
+
+    /**
+     * Returns a stream of all array nodes in this JSONObject.
+     * Each node contains both its value and its path from the root.
+     * 
+     * @return A stream of JSONNodes representing all array nodes in this object
+     */
+    public Stream<JSONNode> toArrayStream() {
+        return toStream().filter(JSONNode::isArray);
     }
 }

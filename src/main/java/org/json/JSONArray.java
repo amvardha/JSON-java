@@ -14,6 +14,8 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
+import java.util.stream.IntStream;
 
 
 /**
@@ -2021,6 +2023,75 @@ public class JSONArray implements Iterable<Object> {
         return new JSONException(
                 "JSONArray[" + idx + "] is not a " + valueType + " (" + value.getClass() + " : " + value + ")."
                 , cause);
+    }
+
+    /**
+     * Returns a stream of all nodes in this JSONArray, including nested objects and arrays.
+     * Each node contains both its value and its path from the root.
+     * 
+     * @param currentPath The current path to this node
+     * @return A stream of JSONNodes representing all nodes in this array
+     */
+    public Stream<JSONNode> toStream(List<String> currentPath) {
+        Stream<JSONNode> thisNode = Stream.of(new JSONNode(this, currentPath));
+        
+        Stream<JSONNode> childNodes = IntStream.range(0, this.length())
+            .mapToObj(i -> {
+                List<String> newPath = new ArrayList<>(currentPath);
+                newPath.add(String.valueOf(i));
+                Object value = this.opt(i);
+                
+                if (value instanceof JSONObject) {
+                    return ((JSONObject) value).toStream(newPath);
+                } else if (value instanceof JSONArray) {
+                    return ((JSONArray) value).toStream(newPath);
+                } else {
+                    return Stream.of(new JSONNode(value, newPath));
+                }
+            })
+            .flatMap(s -> s);
+            
+        return Stream.concat(thisNode, childNodes);
+    }
+
+    /**
+     * Returns a stream of all nodes in this JSONArray, including nested objects and arrays.
+     * Each node contains both its value and its path from the root.
+     * 
+     * @return A stream of JSONNodes representing all nodes in this array
+     */
+    public Stream<JSONNode> toStream() {
+        return toStream(new ArrayList<>());
+    }
+
+    /**
+     * Returns a stream of all leaf nodes in this JSONArray (nodes that are not objects or arrays).
+     * Each node contains both its value and its path from the root.
+     * 
+     * @return A stream of JSONNodes representing all leaf nodes in this array
+     */
+    public Stream<JSONNode> toLeafStream() {
+        return toStream().filter(node -> !node.isObject() && !node.isArray());
+    }
+
+    /**
+     * Returns a stream of all object nodes in this JSONArray.
+     * Each node contains both its value and its path from the root.
+     * 
+     * @return A stream of JSONNodes representing all object nodes in this array
+     */
+    public Stream<JSONNode> toObjectStream() {
+        return toStream().filter(JSONNode::isObject);
+    }
+
+    /**
+     * Returns a stream of all array nodes in this JSONArray.
+     * Each node contains both its value and its path from the root.
+     * 
+     * @return A stream of JSONNodes representing all array nodes in this array
+     */
+    public Stream<JSONNode> toArrayStream() {
+        return toStream().filter(JSONNode::isArray);
     }
 
 }
