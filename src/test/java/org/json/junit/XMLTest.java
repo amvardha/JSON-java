@@ -7,6 +7,8 @@ Public Domain.
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -21,6 +23,9 @@ import java.io.StringReader;
 import java.nio.charset.Charset;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.TimeUnit;
 
 import org.json.*;
 import org.junit.Rule;
@@ -1540,8 +1545,8 @@ public class XMLTest {
         JSONObject root = json.getJSONObject("swe262_root");
         assertTrue(root.has("swe262_foo"));
         assertTrue(root.has("swe262_bar"));
-        assertEquals("value", root.getJSONObject("swe262_foo").getString("content"));
-        assertEquals("content", root.getJSONObject("swe262_bar").getString("content"));
+        assertEquals("value", root.getString("swe262_foo"));
+        assertEquals("content", root.getString("swe262_bar"));
     }
 
     @Test
@@ -1552,31 +1557,28 @@ public class XMLTest {
         assertTrue(json.has("tset"));
         JSONObject tset = json.getJSONObject("tset");
         assertTrue(tset.has("atad"));
-        assertEquals("123", tset.getJSONObject("atad").getString("content"));
+        assertEquals(123, tset.getInt("atad"));
     }
 
     @Test
     public void testKeyTransformerUpperCaseTransformation() {
-        String xml =
-            "<library>" +
-            "  <book>" +
-            "    <title>Sample Book</title>" +
-            "    <author>John Doe</author>" +
-            "    <year>2023</year>" +
-            "    <reviews>" +
-            "      <review>Great book!</review>" +
-            "      <review>Good read</review>" +
-            "    </reviews>" +
-            "  </book>" +
-            "</library>";
+        String xml = "<library><book><title>Sample Book</title><author>John Doe</author><year>2023</year><reviews><review>Great book!</review><review>Good read</review></reviews></book></library>";
         XML.KeyTransformer upperCaseTransformer = String::toUpperCase;
         JSONObject json = XML.toJSONObject(new StringReader(xml), upperCaseTransformer);
-        assertTrue(json.has("LIBRARY"));
+        System.out.println("XMLTest.testKeyTransformerUpperCaseTransformation(): " + json);
+        // assertTrue(json.has("LIBRARY"));
         JSONObject library = json.getJSONObject("LIBRARY");
         assertTrue(library.has("BOOK"));
         JSONObject book = library.getJSONObject("BOOK");
-        assertTrue(book.has("TITLE"));
-        assertEquals("Sample Book", book.getJSONObject("TITLE").getString("content"));
+        assertEquals("Sample Book", book.getString("TITLE"));
+        assertEquals("John Doe", book.getString("AUTHOR"));
+        assertEquals(2023, book.getInt("YEAR"));
+        assertTrue(book.has("REVIEWS"));
+        JSONObject reviews = book.getJSONObject("REVIEWS");
+        assertTrue(reviews.has("REVIEW"));
+        JSONArray reviewArray = reviews.getJSONArray("REVIEW");
+        assertEquals("Great book!", reviewArray.getString(0));
+        assertEquals("Good read", reviewArray.getString(1));
     }
 
     /**

@@ -8,6 +8,7 @@ import java.io.StringReader;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.Iterator;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * This provides static methods to convert an XML text into a JSONObject, and to
@@ -441,6 +442,249 @@ public class XML {
                             }
 
                             if (parse(x, jsonObject, tagName, config, currentNestingDepth + 1)) {
+                                if (config.getForceList().contains(tagName)) {
+                                    // Force the value to be an array
+                                    if (jsonObject.length() == 0) {
+                                        context.put(tagName, new JSONArray());
+                                    } else if (jsonObject.length() == 1
+                                            && jsonObject.opt(config.getcDataTagName()) != null) {
+                                        context.append(tagName, jsonObject.opt(config.getcDataTagName()));
+                                    } else {
+                                        context.append(tagName, jsonObject);
+                                    }
+                                } else {
+                                    if (jsonObject.length() == 0) {
+                                        context.accumulate(tagName, "");
+                                    } else if (jsonObject.length() == 1
+                                            && jsonObject.opt(config.getcDataTagName()) != null) {
+                                        context.accumulate(tagName, jsonObject.opt(config.getcDataTagName()));
+                                    } else {
+                                        if (!config.shouldTrimWhiteSpace()) {
+                                            removeEmpty(jsonObject, config);
+                                        }
+                                        context.accumulate(tagName, jsonObject);
+                                    }
+                                }
+
+                                return false;
+                            }
+                        }
+                    }
+                } else {
+                    throw x.syntaxError("Misshaped tag");
+                }
+            }
+        }
+    }
+
+    /**
+     * Scan the content following the named tag, attaching it to the context.
+     *
+     * @param x The XMLTokener containing the source string.
+     * @param context The JSONObject that will include the new material.
+     * @param name The tag name.
+     * @param config The XML parser configuration.
+     * @param currentNestingDepth The current nesting depth.
+     * @param keyTransformer A transformer function applied to all the keys
+     * @return true if the close tag is processed.
+     * @throws JSONException Thrown if any parsing error occurs.
+     */
+    private static boolean parse(XMLTokener x, JSONObject context, String name, XMLParserConfiguration config, int currentNestingDepth, KeyTransformer keyTransformer)
+            throws JSONException {
+        char c;
+        int i;
+        JSONObject jsonObject = null;
+        String string;
+        String tagName;
+        Object token;
+        XMLXsiTypeConverter<?> xmlXsiTypeConverter;
+
+        // Test for and skip past these forms:
+        // <!-- ... -->
+        // <! ... >
+        // <![ ... ]]>
+        // <? ... ?>
+        // Report errors for these forms:
+        // <>
+        // <=
+        // <<
+        token = x.nextToken();
+
+        // <!
+        if (token == BANG) {
+            c = x.next();
+            if (c == '-') {
+                if (x.next() == '-') {
+                    x.skipPast("-->");
+                    return false;
+                }
+                x.back();
+            } else if (c == '[') {
+                token = x.nextToken();
+                if ("CDATA".equals(token)) {
+                    if (x.next() == '[') {
+                        string = x.nextCDATA();
+                        if (string.length() > 0) {
+                            String dataTagName = keyTransformer.transform(config.getcDataTagName());
+                            context.accumulate(config.getcDataTagName(), string);
+                        }
+                        return false;
+                    }
+                }
+                throw x.syntaxError("Expected 'CDATA['");
+            }
+            i = 1;
+            do {
+                token = x.nextMeta();
+                if (token == null) {
+                    throw x.syntaxError("Missing '>' after '<!'.");
+                } else if (token == LT) {
+                    i += 1;
+                } else if (token == GT) {
+                    i -= 1;
+                }
+            } while (i > 0);
+            return false;
+        } else if (token == QUEST) {
+
+            // <?
+            x.skipPast("?>");
+            return false;
+        } else if (token == SLASH) {
+
+            // Close tag </
+            token = x.nextToken();
+            token = keyTransformer.transform((String) token);
+            if (name == null) {
+                throw x.syntaxError("Mismatched close tag " + token);
+            }
+            if (!token.equals(name)) {
+                throw x.syntaxError("Mismatched " + name + " and " + token);
+            }
+            if (x.nextToken() != GT) {
+                throw x.syntaxError("Misshaped close tag");
+            }
+            return true;
+
+        } else if (token instanceof Character) {
+            throw x.syntaxError("Misshaped tag");
+
+            // Open tag <
+        } else {
+            tagName = (String) token;
+            tagName = keyTransformer.transform(tagName);
+            token = null;
+            jsonObject = new JSONObject();
+            boolean nilAttributeFound = false;
+            xmlXsiTypeConverter = null;
+            for (;;) {
+                if (token == null) {
+                    token = x.nextToken();
+                }
+                // attribute = value
+                if (token instanceof String) {
+                    string = (String) token;
+                    string = keyTransformer.transform(string);
+                    token = x.nextToken();
+                    if (token == EQ) {
+                        token = x.nextToken();
+                        if (!(token instanceof String)) {
+                            throw x.syntaxError("Missing value");
+                        }
+
+                        if (config.isConvertNilAttributeToNull()
+                                && NULL_ATTR.equals(string)
+                                && Boolean.parseBoolean((String) token)) {
+                            nilAttributeFound = true;
+                        } else if (config.getXsiTypeMap() != null && !config.getXsiTypeMap().isEmpty()
+                                && TYPE_ATTR.equals(string)) {
+                            xmlXsiTypeConverter = config.getXsiTypeMap().get(token);
+                        } else if (!nilAttributeFound) {
+                            Object obj = stringToValue((String) token);
+                            if (obj instanceof Boolean) {
+                                jsonObject.accumulate(string,
+                                        config.isKeepBooleanAsString()
+                                        ? ((String) token)
+                                        : obj);
+                            } else if (obj instanceof Number) {
+                                jsonObject.accumulate(string,
+                                        config.isKeepNumberAsString()
+                                        ? ((String) token)
+                                        : obj);
+                            } else {
+                                jsonObject.accumulate(string, stringToValue((String) token));
+                            }
+                        }
+                        token = null;
+                    } else {
+                        jsonObject.accumulate(string, "");
+                    }
+
+                } else if (token == SLASH) {
+                    // Empty tag <.../>
+                    if (x.nextToken() != GT) {
+                        throw x.syntaxError("Misshaped tag");
+                    }
+                    if (config.getForceList().contains(tagName)) {
+                        // Force the value to be an array
+                        if (nilAttributeFound) {
+                            context.append(tagName, JSONObject.NULL);
+                        } else if (jsonObject.length() > 0) {
+                            context.append(tagName, jsonObject);
+                        } else {
+                            context.put(tagName, new JSONArray());
+                        }
+                    } else {
+                        if (nilAttributeFound) {
+                            context.accumulate(tagName, JSONObject.NULL);
+                        } else if (jsonObject.length() > 0) {
+                            context.accumulate(tagName, jsonObject);
+                        } else {
+                            context.accumulate(tagName, "");
+                        }
+                    }
+                    return false;
+
+                } else if (token == GT) {
+                    // Content, between <...> and </...>
+                    for (;;) {
+                        token = x.nextContent();
+                        if (token == null) {
+                            if (tagName != null) {
+                                throw x.syntaxError("Unclosed tag " + tagName);
+                            }
+                            return false;
+                        } else if (token instanceof String) {
+                            string = (String) token;
+                            if (string.length() > 0) {
+                                if (xmlXsiTypeConverter != null) {
+                                    jsonObject.accumulate(config.getcDataTagName(),
+                                            stringToValue(string, xmlXsiTypeConverter));
+                                } else {
+                                    Object obj = stringToValue((String) token);
+                                    if (obj instanceof Boolean) {
+                                        jsonObject.accumulate(config.getcDataTagName(),
+                                                config.isKeepBooleanAsString()
+                                                ? ((String) token)
+                                                : obj);
+                                    } else if (obj instanceof Number) {
+                                        jsonObject.accumulate(config.getcDataTagName(),
+                                                config.isKeepNumberAsString()
+                                                ? ((String) token)
+                                                : obj);
+                                    } else {
+                                        jsonObject.accumulate(config.getcDataTagName(), stringToValue((String) token));
+                                    }
+                                }
+                            }
+
+                        } else if (token == LT) {
+                            // Nested element
+                            if (currentNestingDepth == config.getMaxNestingDepth()) {
+                                throw x.syntaxError("Maximum nesting depth of " + config.getMaxNestingDepth() + " reached");
+                            }
+
+                            if (parse(x, jsonObject, tagName, config, currentNestingDepth + 1, keyTransformer)) {
                                 if (config.getForceList().contains(tagName)) {
                                     // Force the value to be an array
                                     if (jsonObject.length() == 0) {
@@ -1190,197 +1434,18 @@ public class XML {
     public static JSONObject toJSONObject(Reader reader, KeyTransformer keyTransformer) throws JSONException {
         JSONObject rootObject = new JSONObject();
         XMLTokener tokener = new XMLTokener(reader);
+        XMLParserConfiguration config = new XMLParserConfiguration();
 
         // System.out.println("Starting XML parsing...");
         while (tokener.more()) {
             tokener.skipPast("<");
             if (tokener.more()) {
-                parseElement(tokener, rootObject, null, keyTransformer);
+                parse(tokener, rootObject, null, config, 0, keyTransformer);
             }
         }
 
         // System.out.println("XML parsing complete.");
         return rootObject;
-    }
-
-    /**
-     * Parses an XML element, applying key transformations as needed. Handles
-     * CDATA, comments, self-closing, and nested tags.
-     *
-     * @param tokener The XMLTokener (stream reader for XML).
-     * @param parent The JSONObject being populated.
-     * @param currentTagName The tag currently being parsed (null for root).
-     * @param keyTransformer The key transformation function.
-     * @return true if a closing tag is processed, false otherwise.
-     * @throws JSONException For malformed XML.
-     */
-    private static Object parseElement(XMLTokener tokener, JSONObject parent, String currentTagName, KeyTransformer keyTransformer) throws JSONException {
-        char ch;
-        String text;
-        String xmlTagName;
-        Object xmlToken;
-
-        xmlToken = tokener.nextToken();
-
-        // System.out.println("Parsing token: " + xmlToken);
-        if (xmlToken == BANG) {
-            ch = tokener.next();
-            if (ch == '-') {
-                if (tokener.next() == '-') {
-                    // System.out.println("Skipping comment...");
-                    tokener.skipPast("-->");
-                    return false;
-                }
-                tokener.back();
-            } else if (ch == '[') {
-                xmlToken = tokener.nextToken();
-                if ("CDATA".equals(xmlToken)) {
-                    if (tokener.next() == '[') {
-                        String cdataContent = tokener.nextCDATA();
-                        if (!cdataContent.isEmpty()) {
-                            String transformedName = (currentTagName != null && keyTransformer != null)
-                                    ? keyTransformer.transform(currentTagName)
-                                    : currentTagName;
-                            // System.out.println("Adding CDATA content for: " + transformedName);
-                            parent.put(transformedName, cdataContent);
-                        }
-                        return false;
-                    }
-                }
-                throw tokener.syntaxError("Expected 'CDATA['");
-            }
-            skipMeta(tokener);
-            return false;
-        } else if (xmlToken == QUEST) {
-            // System.out.println("Skipping processing instruction...");
-            tokener.skipPast("?>");
-            return false;
-        } else if (xmlToken == SLASH) {
-            // Handle closing tag
-            xmlToken = tokener.nextToken();
-            if (currentTagName == null || !xmlToken.equals(currentTagName)) {
-                throw tokener.syntaxError("Mismatched close tag: " + xmlToken);
-            }
-            if (tokener.nextToken() != GT) {
-                throw tokener.syntaxError("Misshaped close tag");
-            }
-            // System.out.println("Closed tag: " + currentTagName);
-            return true;
-        } else if (xmlToken instanceof Character) {
-            throw tokener.syntaxError("Misshaped tag");
-        } else {
-            // Opening tag
-            xmlTagName = (String) xmlToken;
-            xmlToken = null;
-            JSONObject childObject = new JSONObject();
-
-            while (true) {
-                if (xmlToken == null) {
-                    xmlToken = tokener.nextToken();
-                }
-
-                if (xmlToken instanceof String) {
-                    // Found an attribute or content
-                    text = (String) xmlToken;
-                    xmlToken = tokener.nextToken();
-
-                    if (xmlToken == EQ) {
-                        // Attribute assignment
-                        xmlToken = tokener.nextToken();
-                        if (!(xmlToken instanceof String)) {
-                            throw tokener.syntaxError("Missing value for attribute: " + text);
-                        }
-                        String transformedAttrName = keyTransformer != null
-                                ? keyTransformer.transform("@" + text)
-                                : "@" + text;
-
-                        // System.out.println("Setting attribute: " + transformedAttrName);
-                        childObject.put(transformedAttrName, xmlToken);
-                        xmlToken = null;
-                    } else {
-                        // Content
-                        // System.out.println("Adding element content: " + text);
-                        childObject.put("content", text);
-                    }
-                } else if (xmlToken == SLASH) {
-                    // Self-closing tag <tag/>
-                    if (tokener.nextToken() != GT) {
-                        throw tokener.syntaxError("Misshaped self-closing tag");
-                    }
-                    String transformedTag = keyTransformer != null ? keyTransformer.transform(xmlTagName) : xmlTagName;
-                    if (childObject.length() > 0) {
-                        // System.out.println("Adding object for tag: " + transformedTag);
-                        parent.put(transformedTag, childObject);
-                    } else {
-                        // System.out.println("Adding empty string for tag: " + transformedTag);
-                        parent.put(transformedTag, "");
-                    }
-                    return false;
-                } else if (xmlToken == GT) {
-                    // Tag is open, now process its contents and nested children
-                    while (true) {
-                        xmlToken = tokener.nextContent();
-                        if (xmlToken == null) {
-                            if (xmlTagName != null) {
-                                throw tokener.syntaxError("Unclosed tag: " + xmlTagName);
-                            }
-                            return false;
-                        } else if (xmlToken instanceof String) {
-                            text = (String) xmlToken;
-                            if (!text.isEmpty()) {
-                                // System.out.println("Adding text node content for: " + xmlTagName);
-                                childObject.put("content", text);
-                            }
-                        } else if (xmlToken == LT) {
-                            // Nested tag
-                            if ((boolean) parseElement(tokener, childObject, xmlTagName, keyTransformer)) {
-                                String transformedTag = keyTransformer != null ? keyTransformer.transform(xmlTagName) : xmlTagName;
-                                if (parent.has(transformedTag)) {
-                                    Object existing = parent.get(transformedTag);
-                                    if (existing instanceof JSONArray) {
-                                        // System.out.println("Appending to existing array for tag: " + transformedTag);
-                                        ((JSONArray) existing).put(childObject);
-                                    } else {
-                                        JSONArray array = new JSONArray();
-                                        array.put(existing);
-                                        array.put(childObject);
-                                        // System.out.println("Converting value to array for tag: " + transformedTag);
-                                        parent.put(transformedTag, array);
-                                    }
-                                } else {
-                                    // System.out.println("Adding new object for tag: " + transformedTag);
-                                    parent.put(transformedTag, childObject);
-                                }
-                                return false;
-                            }
-                        }
-                    }
-                } else {
-                    throw tokener.syntaxError("Misshaped tag");
-                }
-            }
-        }
-    }
-
-    /**
-     * Skips meta content like DOCTYPE or comments inside <! ... >
-     *
-     * @param tokener The XMLTokener in use.
-     * @throws JSONException If malformed XML is detected.
-     */
-    private static void skipMeta(XMLTokener tokener) throws JSONException {
-        int depth = 1;
-        // System.out.println("Skipping meta section...");
-        while (depth > 0) {
-            Object token = tokener.nextMeta();
-            if (token == null) {
-                throw tokener.syntaxError("Missing '>' after '<!'.");
-            } else if (token == LT) {
-                depth++;
-            } else if (token == GT) {
-                depth--;
-            }
-        }
     }
 
     /**
