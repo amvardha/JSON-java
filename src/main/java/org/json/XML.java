@@ -1383,4 +1383,144 @@ public class XML {
         }
     }
 
+    /**
+     * Functional interface for handling successful JSONObject creation.
+     */
+    @FunctionalInterface
+    public interface JSONObjectCallback {
+        void onSuccess(JSONObject jsonObject);
+    }
+
+    /**
+     * Functional interface for handling errors during JSONObject creation.
+     */
+    @FunctionalInterface
+    public interface ErrorCallback {
+        void onError(Exception e);
+    }
+
+    /**
+     * Convert a well-formed (but not necessarily valid) XML into a JSONObject asynchronously.
+     * This method is useful for processing large XML files without blocking the calling thread.
+     *
+     * @param reader The XML source reader.
+     * @param successCallback Called when the JSONObject is successfully created.
+     * @param errorCallback Called if an error occurs during processing.
+     */
+    public static void toJSONObject(Reader reader, JSONObjectCallback successCallback, ErrorCallback errorCallback) {
+        CompletableFuture.runAsync(() -> {
+            try {
+                System.out.println("gotten a string:" + reader.toString());
+                JSONObject result = toJSONObject(reader);
+                successCallback.onSuccess(result);
+            } catch (Exception e) {
+                errorCallback.onError(e);
+            }
+        });
+    }
+
+    /**
+     * Convert a well-formed (but not necessarily valid) XML string into a JSONObject asynchronously.
+     * This method is useful for processing large XML strings without blocking the calling thread.
+     *
+     * @param string The source string.
+     * @param successCallback Called when the JSONObject is successfully created.
+     * @param errorCallback Called if an error occurs during processing.
+     */
+    public static void toJSONObject(String string, JSONObjectCallback successCallback, ErrorCallback errorCallback) {
+        CompletableFuture.runAsync(() -> {
+            try {
+                JSONObject result = toJSONObject(new StringReader(string));
+                successCallback.onSuccess(result);
+            } catch (Exception e) {
+                errorCallback.onError(e);
+            }
+        });
+    }
+
+    /**
+     * Convert a well-formed (but not necessarily valid) XML into a JSONObject asynchronously
+     * with configuration options.
+     *
+     * @param reader The XML source reader.
+     * @param config Configuration options for the parser.
+     * @param successCallback Called when the JSONObject is successfully created.
+     * @param errorCallback Called if an error occurs during processing.
+     */
+    public static void toJSONObject(Reader reader, XMLParserConfiguration config, 
+            JSONObjectCallback successCallback, ErrorCallback errorCallback) {
+        CompletableFuture.runAsync(() -> {
+            try {
+                JSONObject result = toJSONObject(reader, config);
+                successCallback.onSuccess(result);
+            } catch (Exception e) {
+                errorCallback.onError(e);
+            }
+        });
+    }
+
+    /**
+     * Convert a well-formed (but not necessarily valid) XML string into a JSONObject asynchronously
+     * with configuration options.
+     *
+     * @param string The source string.
+     * @param config Configuration options for the parser.
+     * @param successCallback Called when the JSONObject is successfully created.
+     * @param errorCallback Called if an error occurs during processing.
+     */
+    public static void toJSONObject(String string, XMLParserConfiguration config,
+            JSONObjectCallback successCallback, ErrorCallback errorCallback) {
+        CompletableFuture.runAsync(() -> {
+            try {
+                JSONObject result = toJSONObject(new StringReader(string), config);
+                successCallback.onSuccess(result);
+            } catch (Exception e) {
+                errorCallback.onError(e);
+            }
+        });
+    }
+
+    /**
+     * Convert a well-formed (but not necessarily valid) XML into a JSONObject asynchronously
+     * with key transformation.
+     *
+     * @param reader The XML source reader.
+     * @param keyTransformer The function to transform XML keys to JSON keys.
+     * @param successCallback Called when the JSONObject is successfully created.
+     * @param errorCallback Called if an error occurs during processing.
+     */
+    public static void toJSONObject(Reader reader, KeyTransformer keyTransformer,
+            JSONObjectCallback successCallback, ErrorCallback errorCallback) {
+        CompletableFuture.runAsync(() -> {
+            try {
+                JSONObject result = toJSONObject(reader, keyTransformer);
+                successCallback.onSuccess(result);
+            } catch (Exception e) {
+                errorCallback.onError(e);
+            }
+        });
+    }
+
+    /**
+     * Convert a well-formed (but not necessarily valid) XML string into a JSONObject asynchronously
+     * with key transformation.
+     *
+     * @param string The source string.
+     * @param keyTransformer The function to transform XML keys to JSON keys.
+     * @param successCallback Called when the JSONObject is successfully created.
+     * @param errorCallback Called if an error occurs during processing.
+     */
+    public static void toJSONObject(String string, KeyTransformer keyTransformer,
+            JSONObjectCallback successCallback, ErrorCallback errorCallback) {
+        System.out.println("Gotten a string:" + string);
+        CompletableFuture.runAsync(() -> {
+            try {
+                JSONObject result = toJSONObject(new StringReader(string), keyTransformer);
+                successCallback.onSuccess(result);
+            } catch (Exception e) {
+                errorCallback.onError(e);
+            }
+        });
+    }
+
 }

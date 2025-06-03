@@ -1579,6 +1579,221 @@ public class XMLTest {
         assertEquals("Sample Book", book.getJSONObject("TITLE").getString("content"));
     }
 
+    /**
+     * Test the asynchronous XML to JSONObject conversion with a simple XML string.
+     */
+    @Test
+    public void testToJSONObjectAsyncSimple() throws Exception {
+        String xml = "<root><name>John</name><age>30</age></root>";
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<JSONObject> result = new AtomicReference<>();
+        AtomicReference<Exception> error = new AtomicReference<>();
+
+        XML.toJSONObject(xml, 
+            (JSONObject jo) -> {
+                result.set(jo);
+                latch.countDown();
+            },
+            (Exception e) -> {
+                error.set(e);
+                latch.countDown();
+            }
+        );
+
+        
+        latch.await(5, TimeUnit.SECONDS);
+        assertNull("No error should occur", error.get());
+        assertNotNull("Result should not be null", result.get());
+        assertEquals("John", result.get().getJSONObject("root").getString("name"));
+        assertEquals(30, result.get().getJSONObject("root").getInt("age"));
+    }
+
+    /**
+     * Test the asynchronous XML to JSONObject conversion with configuration options.
+     */
+    @Test
+    public void testToJSONObjectAsyncWithConfig() throws Exception {
+        String xml = "<root><name>John</name><age>30</age></root>";
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<JSONObject> result = new AtomicReference<>();
+        AtomicReference<Exception> error = new AtomicReference<>();
+        XMLParserConfiguration config = new XMLParserConfiguration();
+
+        XML.toJSONObject(xml, config,
+            (JSONObject jo) -> {
+                result.set(jo);
+                latch.countDown();
+            },
+            (Exception e) -> {
+                error.set(e);
+                latch.countDown();
+            }
+        );
+
+        latch.await(5, TimeUnit.SECONDS);
+        assertNull("No error should occur", error.get());
+        assertNotNull("Result should not be null", result.get());
+        assertEquals("John", result.get().getJSONObject("root").getString("name"));
+        assertEquals(30, result.get().getJSONObject("root").getInt("age"));
+    }
+
+    /**
+     * Test the asynchronous XML to JSONObject conversion with key transformation.
+     */
+    @Test
+    public void testToJSONObjectAsyncWithKeyTransformer() throws Exception {
+        String xml = "<Root><Name>John</Name><Age>30</Age></Root>";
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<JSONObject> result = new AtomicReference<>();
+        AtomicReference<Exception> error = new AtomicReference<>();
+
+        XML.toJSONObject(xml, 
+            (String key) -> key.toLowerCase(),
+            (JSONObject jo) -> {
+                result.set(jo);
+                latch.countDown();
+            },
+            (Exception e) -> {
+                error.set(e);
+                latch.countDown();
+            }
+        );
+
+        
+        latch.await(5, TimeUnit.SECONDS);
+        assertNull("No error should occur", error.get());
+        assertNotNull("Result should not be null", result.get());
+        assertEquals("John", result.get().getJSONObject("root").getString("name"));
+        assertEquals(30, result.get().getJSONObject("root").getInt("age"));
+    }
+
+    /**
+     * Test the asynchronous XML to JSONObject conversion with malformed XML.
+     */
+    @Test
+    public void testToJSONObjectAsyncWithMalformedXML() throws Exception {
+        String xml = "<root><name>John</name><age>30</age>"; // Missing closing tag
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<JSONObject> result = new AtomicReference<>();
+        AtomicReference<Exception> error = new AtomicReference<>();
+
+        XML.toJSONObject(xml,
+            (JSONObject jo) -> {
+                result.set(jo);
+                latch.countDown();
+            },
+            (Exception e) -> {
+                error.set(e);
+                latch.countDown();
+            }
+        );
+
+        latch.await(5, TimeUnit.SECONDS);
+        assertNotNull("Error should occur", error.get());
+        assertNull("Result should be null", result.get());
+        assertTrue("Error should be JSONException", error.get() instanceof JSONException);
+    }
+
+    /**
+     * Test the asynchronous XML to JSONObject conversion with a large XML file.
+     */
+    @Test
+    public void testToJSONObjectAsyncWithLargeXML() throws Exception {
+        StringBuilder xml = new StringBuilder("<root>");
+        for (int i = 0; i < 1000; i++) {
+            xml.append("<item>").append(i).append("</item>");
+        }
+        xml.append("</root>");
+
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<JSONObject> result = new AtomicReference<>();
+        AtomicReference<Exception> error = new AtomicReference<>();
+
+        XML.toJSONObject(xml.toString(),
+            (JSONObject jo) -> {
+                result.set(jo);
+                latch.countDown();
+            },
+            (Exception e) -> {
+                error.set(e);
+                latch.countDown();
+            }
+        );
+
+        latch.await(5, TimeUnit.SECONDS);
+        assertNull("No error should occur", error.get());
+        assertNotNull("Result should not be null", result.get());
+        JSONArray items = result.get().getJSONObject("root").getJSONArray("item");
+        assertEquals(1000, items.length());
+        for (int i = 0; i < 1000; i++) {
+            assertEquals(i, items.getInt(i));
+        }
+    }
+
+    /**
+     * Test the asynchronous XML to JSONObject conversion with nested elements.
+     */
+    @Test
+    public void testToJSONObjectAsyncWithNestedElements() throws Exception {
+        String xml = "<root><person><name>John</name><address><city>New York</city><zip>10001</zip></address></person></root>";
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<JSONObject> result = new AtomicReference<>();
+        AtomicReference<Exception> error = new AtomicReference<>();
+
+        XML.toJSONObject(xml,
+            (JSONObject jo) -> {
+                result.set(jo);
+                latch.countDown();
+            },
+            (Exception e) -> {
+                error.set(e);
+                latch.countDown();
+            }
+        );
+
+        latch.await(5, TimeUnit.SECONDS);
+        assertNull("No error should occur", error.get());
+        assertNotNull("Result should not be null", result.get());
+        
+        JSONObject person = result.get().getJSONObject("root").getJSONObject("person");
+        assertEquals("John", person.getString("name"));
+        
+        JSONObject address = person.getJSONObject("address");
+        assertEquals("New York", address.getString("city"));
+        assertEquals(10001, address.getInt("zip"));
+    }
+
+    /**
+     * Test the asynchronous XML to JSONObject conversion with attributes.
+     */
+    @Test
+    public void testToJSONObjectAsyncWithAttributes() throws Exception {
+        String xml = "<root><person id=\"1\" type=\"user\"><name>John</name></person></root>";
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<JSONObject> result = new AtomicReference<>();
+        AtomicReference<Exception> error = new AtomicReference<>();
+
+        XML.toJSONObject(xml,
+            (JSONObject jo) -> {
+                result.set(jo);
+                latch.countDown();
+            },
+            (Exception e) -> {
+                error.set(e);
+                latch.countDown();
+            }
+        );
+
+        latch.await(5, TimeUnit.SECONDS);
+        assertNull("No error should occur", error.get());
+        assertNotNull("Result should not be null", result.get());
+        System.out.println("XMLTest.testToJSONObjectAsyncWithAttributes(): " + result.get());
+        
+        JSONObject person = result.get().getJSONObject("root").getJSONObject("person");
+        assertEquals(1, person.getInt("id"));
+        assertEquals("user", person.getString("type"));
+        assertEquals("John", person.getString("name"));
+    }
 }
 
 
